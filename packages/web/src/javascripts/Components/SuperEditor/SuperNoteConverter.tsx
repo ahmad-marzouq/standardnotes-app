@@ -47,7 +47,7 @@ const SuperNoteConverter = ({
       return note.text
     }
 
-    return new HeadlessSuperConverter().convertString(note.text, format)
+    return new HeadlessSuperConverter().convertFromSuperStringToFormat(note.text, format)
   }, [format, note])
 
   const componentViewer = useMemo(() => {

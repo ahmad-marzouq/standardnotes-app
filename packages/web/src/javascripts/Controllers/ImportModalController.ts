@@ -4,6 +4,7 @@ import { ContentType, pluralize, UuidGenerator } from '@standardnotes/snjs'
 import { Importer, NoteImportType } from '@standardnotes/ui-services'
 import { action, makeObservable, observable } from 'mobx'
 import { NavigationController } from './Navigation/NavigationController'
+import { HeadlessSuperConverter } from '@/Components/SuperEditor/Tools/HeadlessSuperConverter'
 
 type ImportModalFileCommon = {
   id: string
@@ -41,7 +42,8 @@ export class ImportModalController {
       setImportTag: action,
     })
 
-    this.importer = new Importer(application)
+    const headlessSuperConverter = new HeadlessSuperConverter()
+    this.importer = new Importer(application, headlessSuperConverter)
   }
 
   setIsVisible = (isVisible: boolean) => {

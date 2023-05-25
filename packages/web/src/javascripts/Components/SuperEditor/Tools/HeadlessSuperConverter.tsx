@@ -1,11 +1,19 @@
 import { createHeadlessEditor } from '@lexical/headless'
 import { $convertToMarkdownString } from '@lexical/markdown'
 import { SuperConverterServiceInterface } from '@standardnotes/snjs'
-import { $nodesOfType, LexicalEditor, ParagraphNode } from 'lexical'
+import {
+  $createParagraphNode,
+  $getRoot,
+  $insertNodes,
+  $nodesOfType,
+  LexicalEditor,
+  LexicalNode,
+  ParagraphNode,
+} from 'lexical'
 import BlocksEditorTheme from '../Lexical/Theme/Theme'
 import { BlockEditorNodes } from '../Lexical/Nodes/AllNodes'
 import { MarkdownTransformers } from '../MarkdownTransformers'
-import { $generateHtmlFromNodes } from '@lexical/html'
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html'
 
 export class HeadlessSuperConverter implements SuperConverterServiceInterface {
   private editor: LexicalEditor
@@ -20,7 +28,7 @@ export class HeadlessSuperConverter implements SuperConverterServiceInterface {
     })
   }
 
-  convertString(superString: string, format: 'txt' | 'md' | 'html' | 'json'): string {
+  convertFromSuperStringToFormat(superString: string, format: 'txt' | 'md' | 'html' | 'json'): string {
     if (superString.length === 0) {
       return superString
     }
@@ -60,5 +68,50 @@ export class HeadlessSuperConverter implements SuperConverterServiceInterface {
     }
 
     return content
+  }
+
+  convertHTMLToSuperString = (html: string): string => {
+    if (!html) {
+      throw new Error('HTML is empty')
+    }
+
+    this.editor.update(
+      () => {
+        $getRoot().clear()
+      },
+      {
+        discrete: true,
+      },
+    )
+
+    this.editor.update(
+      () => {
+        const parser = new DOMParser()
+        const dom = parser.parseFromString(html, 'text/html')
+        const generatedNodes = $generateNodesFromDOM(this.editor, dom)
+        const nodesToInsert: LexicalNode[] = []
+        generatedNodes.forEach((node) => {
+          const type = node.getType()
+
+          // Wrap text & link nodes with paragraph since they can't
+          // be top-level nodes in Super
+          if (type === 'text' || type === 'link') {
+            const paragraphNode = $createParagraphNode()
+            paragraphNode.append(node)
+            nodesToInsert.push(paragraphNode)
+            return
+          } else {
+            nodesToInsert.push(node)
+          }
+        })
+        $getRoot().select()
+        $insertNodes(nodesToInsert.concat($createParagraphNode()))
+      },
+      {
+        discrete: true,
+      },
+    )
+
+    return JSON.stringify(this.editor.getEditorState())
   }
 }

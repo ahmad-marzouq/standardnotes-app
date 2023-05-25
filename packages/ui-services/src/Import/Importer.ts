@@ -8,6 +8,7 @@ import { PlaintextConverter } from './PlaintextConverter/PlaintextConverter'
 import { SimplenoteConverter } from './SimplenoteConverter/SimplenoteConverter'
 import { readFileAsText } from './Utils'
 import { DecryptedTransferPayload, NoteContent } from '@standardnotes/models'
+import { SuperConverterServiceInterface } from '@standardnotes/snjs/dist/@types'
 
 export type NoteImportType = 'plaintext' | 'evernote' | 'google-keep' | 'simplenote' | 'aegis'
 
@@ -18,12 +19,15 @@ export class Importer {
   plaintextConverter: PlaintextConverter
   evernoteConverter: EvernoteConverter
 
-  constructor(protected application: WebApplicationInterface) {
+  constructor(
+    protected application: WebApplicationInterface,
+    protected superConverter: SuperConverterServiceInterface,
+  ) {
     this.aegisConverter = new AegisToAuthenticatorConverter(application)
     this.googleKeepConverter = new GoogleKeepConverter(application)
     this.simplenoteConverter = new SimplenoteConverter(application)
     this.plaintextConverter = new PlaintextConverter(application)
-    this.evernoteConverter = new EvernoteConverter(application)
+    this.evernoteConverter = new EvernoteConverter(application, superConverter)
   }
 
   static detectService = async (file: File): Promise<NoteImportType | null> => {
@@ -61,6 +65,9 @@ export class Importer {
   }
 
   async getPayloadsFromFile(file: File, type: NoteImportType): Promise<DecryptedTransferPayload[]> {
+    const isEntitledToSuperEditor =
+      this.application.features.getFeatureStatus(FeatureIdentifier.SuperEditor) === FeatureStatus.Entitled
+
     if (type === 'aegis') {
       const isEntitledToAuthenticator =
         this.application.features.getFeatureStatus(FeatureIdentifier.TokenVaultEditor) === FeatureStatus.Entitled
@@ -70,7 +77,7 @@ export class Importer {
     } else if (type === 'simplenote') {
       return await this.simplenoteConverter.convertSimplenoteBackupFileToNotes(file)
     } else if (type === 'evernote') {
-      return await this.evernoteConverter.convertENEXFileToNotesAndTags(file, false)
+      return await this.evernoteConverter.convertENEXFileToNotesAndTags(file, isEntitledToSuperEditor)
     } else if (type === 'plaintext') {
       return [await this.plaintextConverter.convertPlaintextFileToNote(file)]
     }
